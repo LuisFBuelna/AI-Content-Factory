@@ -13,7 +13,9 @@ Javier should prefer deterministic tools over LLM calls whenever possible.
 
 Javier does not use tools to approve content.
 
-Javier does not publish content directly unless the workflow assigns the publishing operation to Damian and approval has already been recorded.
+Javier does not send normal approval requests directly to Luis.
+
+Javier routes publication proposals to Magnus, who communicates with Luis.
 
 ---
 
@@ -28,11 +30,13 @@ database_read
 database_write
 agent_task_dispatch
 quality_gate_validator
+approval_package_validator
 approval_status_checker
 cost_query
 cache_lookup
 knowledge_read
-telegram_escalation
+magnus_notifier
+approval_decision_receiver_from_magnus
 error_logger
 ```
 
@@ -57,9 +61,9 @@ Javier uses workflow state tools to know where each content item is in the pipel
 {
   "workflow_id": "wf-viral-humor-office-001",
   "action": "update_state",
-  "from_state": "RESEARCH_COMPLETED",
-  "to_state": "CONTENT_DRAFTING",
-  "reason": "Bruno research output passed quality gate."
+  "from_state": "READY_FOR_APPROVAL_PACKAGE",
+  "to_state": "READY_FOR_MAGNUS_REVIEW",
+  "reason": "Damian approval package passed Javier quality gate."
 }
 ```
 
@@ -69,7 +73,7 @@ Javier uses workflow state tools to know where each content item is in the pipel
 {
   "status": "updated",
   "workflow_id": "wf-viral-humor-office-001",
-  "current_state": "CONTENT_DRAFTING"
+  "current_state": "READY_FOR_MAGNUS_REVIEW"
 }
 ```
 
@@ -92,19 +96,28 @@ Javier uses this tool to assign work to Bruno, Elena, Damian, or Magnus.
 ```json
 {
   "workflow_id": "wf-viral-humor-office-001",
-  "target_agent": "Bruno",
-  "task_name": "research_office_humor_angles",
-  "task_goal": "Find 5 safe and relatable office humor angles for Facebook.",
+  "target_agent": "Damian",
+  "task_name": "prepare_publication_approval_package",
+  "task_goal": "Prepare publication proposal package for Magnus to present to Luis.",
   "required_inputs": [
-    "Magnus strategy request",
-    "knowledge/brand_voice.md"
+    "Elena final draft",
+    "media asset information",
+    "risk notes",
+    "suggested schedule"
   ],
   "expected_output_schema": {
-    "research_summary": "string",
-    "key_findings": "array",
-    "content_angles": "array",
-    "risks": "array",
-    "confidence": "low | medium | high"
+    "approval_request_id": "string",
+    "content_post_id": "string",
+    "page": "string",
+    "platform": "string",
+    "content_type": "string",
+    "hook": "string",
+    "post_copy": "string",
+    "call_to_action": "string",
+    "hashtags": "array",
+    "media": "object",
+    "scheduled_time": "string",
+    "risk_notes": "array"
   }
 }
 ```
@@ -114,7 +127,7 @@ Javier uses this tool to assign work to Bruno, Elena, Damian, or Magnus.
 ```json
 {
   "status": "dispatched",
-  "target_agent": "Bruno",
+  "target_agent": "Damian",
   "task_id": "task-001",
   "workflow_id": "wf-viral-humor-office-001"
 }
@@ -139,24 +152,35 @@ Javier uses this tool to check whether an agent output is complete and safe befo
 ```json
 {
   "workflow_id": "wf-viral-humor-office-001",
-  "agent": "Elena",
+  "agent": "Damian",
   "output": {
-    "post_copy": "El jefe: 'es algo rápido'. También el jefe: abre una junta de 47 minutos.",
-    "hook": "El jefe: 'es algo rápido'.",
-    "call_to_action": "Etiqueta a alguien que siempre dice eso.",
+    "content_post_id": 301,
+    "approval_request_id": 701,
+    "hook": "Cuando la junta era de 10 minutos pero ya van 47.",
+    "post_copy": "La junta era para revisar 'un tema rápido' y de pronto ya están hablando del plan estratégico del 2031.",
+    "call_to_action": "Etiqueta a alguien que siempre dice: 'es rapidísimo'.",
     "hashtags": [
       "#Trabajo",
       "#Oficina",
       "#Humor"
     ],
-    "image_prompt": "A humorous office scene showing a tired employee in a long meeting."
+    "media": {
+      "media_asset_id": 901,
+      "media_prompt": "A funny office meeting scene with tired employees."
+    },
+    "scheduled_time": "2026-07-03T20:00:00-06:00",
+    "risk_notes": []
   },
   "required_fields": [
-    "post_copy",
+    "content_post_id",
+    "approval_request_id",
     "hook",
+    "post_copy",
     "call_to_action",
     "hashtags",
-    "image_prompt"
+    "media",
+    "scheduled_time",
+    "risk_notes"
   ]
 }
 ```
@@ -168,13 +192,125 @@ Javier uses this tool to check whether an agent output is complete and safe befo
   "passed": true,
   "missing_fields": [],
   "risk_flags": [],
-  "notes": "Output is complete."
+  "notes": "Output is complete and ready for Magnus review."
 }
 ```
 
 ---
 
-# 6. Approval Status Checker
+# 6. Approval Package Validator
+
+## Tool Intent
+
+```text
+approval_package_validator
+```
+
+## Purpose
+
+Javier validates Damian's approval package before sending it to Magnus.
+
+## Example Input
+
+```json
+{
+  "approval_request_id": 701,
+  "content_post_id": 301,
+  "prepared_by": "Damian"
+}
+```
+
+## Expected Output
+
+```json
+{
+  "valid": true,
+  "ready_for_magnus": true,
+  "issues": [],
+  "next_step": "Notify Magnus that the publication proposal is ready for Luis review."
+}
+```
+
+---
+
+# 7. Magnus Notifier
+
+## Tool Intent
+
+```text
+magnus_notifier
+```
+
+## Purpose
+
+Javier uses this tool to notify Magnus about workflow events, especially publication proposals ready for CEO approval.
+
+## Example Input
+
+```json
+{
+  "send_to": "Magnus",
+  "message_type": "publication_proposal_ready_for_luis",
+  "workflow_id": "wf-viral-humor-office-001",
+  "content_post_id": 301,
+  "approval_request_id": 701,
+  "prepared_by": "Damian",
+  "validated_by": "Javier",
+  "requested_action": "Present approval package to Luis and return decision."
+}
+```
+
+## Expected Output
+
+```json
+{
+  "status": "sent",
+  "sent_to": "Magnus",
+  "next_state": "WAITING_FOR_LUIS_DECISION"
+}
+```
+
+---
+
+# 8. Approval Decision Receiver From Magnus
+
+## Tool Intent
+
+```text
+approval_decision_receiver_from_magnus
+```
+
+## Purpose
+
+Javier receives Luis's decision only through Magnus during normal operation.
+
+## Example Input
+
+```json
+{
+  "received_from": "Magnus",
+  "approval_request_id": 701,
+  "content_post_id": 301,
+  "decision_from": "Luis",
+  "decision": "APPROVE",
+  "feedback": "",
+  "authorized_by": "Luis"
+}
+```
+
+## Expected Output
+
+```json
+{
+  "status": "received",
+  "decision": "APPROVE",
+  "next_operational_action": "Validate approval and instruct Damian to schedule or publish."
+}
+```
+
+---
+
+# 9. Approval Status Checker
 
 ## Tool Intent
 
@@ -184,13 +320,13 @@ approval_status_checker
 
 ## Purpose
 
-Javier uses this tool to confirm whether Luis has approved a content package.
+Javier uses this tool to confirm whether Luis has approved a content package through Magnus.
 
 ## Example Input
 
 ```json
 {
-  "content_post_id": 101,
+  "content_post_id": 301,
   "workflow_id": "wf-viral-humor-office-001"
 }
 ```
@@ -199,9 +335,10 @@ Javier uses this tool to confirm whether Luis has approved a content package.
 
 ```json
 {
-  "content_post_id": 101,
+  "content_post_id": 301,
   "approval_status": "APPROVED",
   "approved_by": "Luis",
+  "approval_routed_by": "Magnus",
   "approved_at": "2026-07-02T20:30:00Z"
 }
 ```
@@ -210,7 +347,7 @@ If the output is anything other than `APPROVED`, publication must not continue.
 
 ---
 
-# 7. Cost Query Tool
+# 10. Cost Query Tool
 
 ## Tool Intent
 
@@ -250,7 +387,7 @@ Javier uses this tool before assigning expensive work.
 
 ---
 
-# 8. Cache Lookup Tool
+# 11. Cache Lookup Tool
 
 ## Tool Intent
 
@@ -284,11 +421,9 @@ Javier checks cached work before assigning duplicate tasks.
 }
 ```
 
-If cache is valid, Javier should reuse it or ask Magnus whether fresh research is required.
-
 ---
 
-# 9. Database Tools
+# 12. Database Tools
 
 Javier needs controlled read and write access to PostgreSQL.
 
@@ -321,59 +456,11 @@ agent_runs
 api_costs
 ```
 
-Javier should not directly modify:
-
-```text
-post_metrics
-publications
-approval_requests
-```
-
-unless the workflow explicitly defines it.
-
-Those are usually handled by Damian or system tools.
+Javier should not directly modify final approval records unless the workflow defines him as updating state after Magnus routes Luis's decision.
 
 ---
 
-# 10. Telegram Escalation Tool
-
-## Tool Intent
-
-```text
-telegram_escalation
-```
-
-## Purpose
-
-Javier uses this tool to notify Luis about operational blockers or critical issues.
-
-## Example Input
-
-```json
-{
-  "send_to": "Luis",
-  "channel": "telegram",
-  "severity": "high",
-  "message": "Workflow wf-viral-humor-office-001 is blocked because approval status is unclear. Publication has been paused."
-}
-```
-
-## Expected Output
-
-```json
-{
-  "status": "sent",
-  "external_message_id": "telegram-message-id"
-}
-```
-
-Use this tool only for important issues.
-
-Do not spam Luis with internal noise.
-
----
-
-# 11. Error Logger
+# 13. Error Logger
 
 ## Tool Intent
 
@@ -390,12 +477,12 @@ Javier logs workflow failures and unexpected states.
 ```json
 {
   "workflow_id": "wf-viral-humor-office-001",
-  "agent_name": "Elena",
-  "task_name": "create_content_draft",
+  "agent_name": "Damian",
+  "task_name": "prepare_publication_approval_package",
   "error_type": "missing_required_fields",
-  "error_message": "Elena output did not include image_prompt.",
-  "current_state": "CONTENT_DRAFTING",
-  "proposed_resolution": "Return task to Elena for correction."
+  "error_message": "Damian output did not include scheduled_time.",
+  "current_state": "READY_FOR_APPROVAL_PACKAGE",
+  "proposed_resolution": "Return task to Damian for correction."
 }
 ```
 
@@ -410,12 +497,13 @@ Javier logs workflow failures and unexpected states.
 
 ---
 
-# 12. Tools Javier Should Not Use Directly
+# 14. Tools Javier Should Not Use Directly
 
 Javier should not directly use:
 
 ```text
 facebook_publish_now
+telegram_ceo_approval_request
 raw_secret_access
 credential_rotation
 file_delete
@@ -423,11 +511,11 @@ public_comment_reply
 automated_dm
 ```
 
-These require special authorization, separate workflows, or belong to Damian/system administration.
+`telegram_ceo_approval_request` belongs to Magnus in the default operating model.
 
 ---
 
-# 13. Future Tools
+# 15. Future Tools
 
 Future Javier tools may include:
 
@@ -446,9 +534,9 @@ These should be added only after v1 workflow is stable.
 
 ---
 
-# 14. Final Tool Principle
+# 16. Final Tool Principle
 
-Javier uses tools to make execution reliable.
+Javier uses tools to make execution reliable and to route CEO-facing decisions through Magnus.
 
 A tool is useful only when it improves:
 

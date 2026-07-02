@@ -1,5 +1,5 @@
 # tools.md
-## Magnus — Product Owner
+## Magnus — Product Owner & CEO Approval Interface
 
 > This file defines the tools Magnus may use or request through the system.
 
@@ -7,11 +7,9 @@
 
 # 1. Tool Philosophy
 
-Magnus uses tools to understand performance, extract insights, and guide strategy.
+Magnus uses tools to understand performance, extract insights, guide strategy, and communicate approval requests with Luis.
 
-Magnus does not use tools to publish content or execute public actions.
-
-Magnus should prefer tools and stored data over unnecessary model calls.
+Magnus should not use tools to publish content or execute public platform actions.
 
 Magnus uses tools for:
 
@@ -19,7 +17,10 @@ Magnus uses tools for:
 - Reading learnings.
 - Reviewing prior posts.
 - Reviewing cost summaries.
-- Understanding approval outcomes.
+- Receiving approval packages from Javier.
+- Sending approval requests to Luis through Telegram.
+- Capturing Luis's approval decision.
+- Routing Luis's decision back to Javier.
 - Requesting research.
 - Requesting workflow execution from Javier.
 
@@ -27,7 +28,7 @@ Magnus uses tools for:
 
 # 2. Minimum Tool Set for v1
 
-For v1, Magnus needs the following tool categories:
+For v1, Magnus needs:
 
 ```text
 database_read
@@ -36,10 +37,14 @@ cost_query
 learning_query
 knowledge_read
 knowledge_update_recommendation
+approval_package_read
+telegram_ceo_approval_request
+ceo_decision_capture
+approval_decision_route_to_javier
 workflow_request_to_javier
 ```
 
-This is enough for Magnus to operate as Product Owner without overcomplicating the system.
+This allows Magnus to operate as Product Owner and as Luis's single approval interface.
 
 ---
 
@@ -62,20 +67,217 @@ api_costs
 
 Purpose:
 
-- Analyze content performance.
+- Analyze performance.
 - Detect patterns.
 - Understand cost.
 - Review approval outcomes.
 - Identify reusable learnings.
-- Compare formats, hooks, CTAs, and image styles.
-
-Magnus should not write directly to operational tables unless the workflow explicitly allows it.
-
-Strategic writes should happen through controlled workflows, not ad-hoc edits.
+- Verify approval package context.
 
 ---
 
-# 4. Metrics Query Tool
+# 4. Approval Package Read Tool
+
+## Tool Intent
+
+```text
+approval_package_read
+```
+
+## Purpose
+
+Magnus uses this tool to receive a publication proposal prepared by Damian and validated by Javier.
+
+## Example Input
+
+```json
+{
+  "approval_request_id": 701,
+  "content_post_id": 301
+}
+```
+
+## Expected Output
+
+```json
+{
+  "approval_request_id": 701,
+  "content_post_id": 301,
+  "prepared_by": "Damian",
+  "validated_by": "Javier",
+  "page": "Viral Humor Page",
+  "platform": "facebook",
+  "content_type": "image_post",
+  "niche": "viral_humor",
+  "hook": "Cuando la junta era de 10 minutos pero ya van 47.",
+  "post_copy": "La junta era para revisar 'un tema rápido' y de pronto ya están hablando del plan estratégico del 2031.",
+  "call_to_action": "Etiqueta a alguien que siempre dice: 'es rapidísimo'.",
+  "hashtags": [
+    "#Trabajo",
+    "#Oficina",
+    "#Humor"
+  ],
+  "media": {
+    "media_asset_id": 901,
+    "media_url": "",
+    "media_prompt": "A funny office meeting scene with tired employees sitting around a conference table."
+  },
+  "scheduled_time": "2026-07-03T20:00:00-06:00",
+  "risk_notes": [],
+  "strategic_reason": "Office humor is being tested as a comment-driving format.",
+  "approval_options": [
+    "APPROVE",
+    "NEEDS_CHANGES",
+    "REJECT",
+    "DISCARD"
+  ]
+}
+```
+
+---
+
+# 5. Telegram CEO Approval Request Tool
+
+## Tool Intent
+
+```text
+telegram_ceo_approval_request
+```
+
+## Purpose
+
+Magnus uses this tool to show Luis a clean approval request through Telegram.
+
+No other agent should send normal approval requests directly to Luis.
+
+## Example Input
+
+```json
+{
+  "send_to": "Luis",
+  "channel": "telegram",
+  "approval_request_id": 701,
+  "content_post_id": 301,
+  "message": {
+    "title": "Publication proposal ready for approval",
+    "page": "Viral Humor Page",
+    "platform": "facebook",
+    "content_type": "image_post",
+    "hook": "Cuando la junta era de 10 minutos pero ya van 47.",
+    "copy": "La junta era para revisar 'un tema rápido' y de pronto ya están hablando del plan estratégico del 2031.",
+    "cta": "Etiqueta a alguien que siempre dice: 'es rapidísimo'.",
+    "hashtags": [
+      "#Trabajo",
+      "#Oficina",
+      "#Humor"
+    ],
+    "media_preview_or_prompt": "A funny office meeting scene with tired employees sitting around a conference table.",
+    "scheduled_time": "2026-07-03T20:00:00-06:00",
+    "strategic_reason": "Office humor is being tested as a comment-driving format.",
+    "risk_notes": [],
+    "decision_options": [
+      "APPROVE",
+      "NEEDS_CHANGES",
+      "REJECT",
+      "DISCARD"
+    ]
+  }
+}
+```
+
+## Expected Output
+
+```json
+{
+  "status": "sent",
+  "approval_request_id": 701,
+  "external_message_id": "telegram-message-id",
+  "sent_at": "2026-07-03T18:30:00-06:00"
+}
+```
+
+---
+
+# 6. CEO Decision Capture Tool
+
+## Tool Intent
+
+```text
+ceo_decision_capture
+```
+
+## Purpose
+
+Magnus uses this tool to capture Luis's approval decision.
+
+## Example Output
+
+```json
+{
+  "approval_request_id": 701,
+  "content_post_id": 301,
+  "decision_from": "Luis",
+  "decision": "APPROVE",
+  "feedback": "",
+  "decided_at": "2026-07-03T18:40:00-06:00"
+}
+```
+
+Valid decisions:
+
+```text
+APPROVE
+NEEDS_CHANGES
+REJECT
+DISCARD
+```
+
+If the decision is ambiguous, Magnus must ask Luis for clarification.
+
+---
+
+# 7. Approval Decision Route to Javier Tool
+
+## Tool Intent
+
+```text
+approval_decision_route_to_javier
+```
+
+## Purpose
+
+Magnus uses this tool to send Luis's decision to Javier for operational handling.
+
+Magnus does not directly publish.
+
+## Example Input
+
+```json
+{
+  "send_to": "Javier",
+  "approval_request_id": 701,
+  "content_post_id": 301,
+  "decision_from": "Luis",
+  "decision": "APPROVE",
+  "feedback": "",
+  "authorized_by": "Luis",
+  "notes_for_damian": "Publish only this approved content version."
+}
+```
+
+## Expected Output
+
+```json
+{
+  "status": "routed",
+  "sent_to": "Javier",
+  "next_operational_step": "Javier validates approval state and instructs Damian to schedule or publish."
+}
+```
+
+---
+
+# 8. Metrics Query Tool
 
 ## Tool Intent
 
@@ -90,8 +292,7 @@ metrics_query
   "period": "last_7_days",
   "platform": "facebook",
   "page_id": 1,
-  "niche": "viral_humor",
-  "content_type": "image_post"
+  "niche": "viral_humor"
 }
 ```
 
@@ -99,59 +300,19 @@ metrics_query
 
 ```json
 {
-  "period": "last_7_days",
-  "platform": "facebook",
-  "page_id": 1,
-  "niche": "viral_humor",
-  "top_posts": [
-    {
-      "content_post_id": 101,
-      "publication_id": 501,
-      "title": "Office humor example",
-      "content_type": "image_post",
-      "reach": 1200,
-      "comments": 18,
-      "shares": 31,
-      "engagement_rate": 0.0875
-    }
-  ],
-  "weak_posts": [
-    {
-      "content_post_id": 102,
-      "publication_id": 502,
-      "title": "Generic meme example",
-      "content_type": "image_post",
-      "reach": 350,
-      "comments": 2,
-      "shares": 4,
-      "engagement_rate": 0.0251
-    }
-  ],
-  "averages": {
-    "reach": 775,
-    "comments": 10,
-    "shares": 17,
-    "engagement_rate": 0.0563
-  },
-  "follower_growth": 12,
-  "notes": [
-    "Office humor posts outperformed generic meme posts in shares."
-  ]
+  "top_posts": [],
+  "weak_posts": [],
+  "average_reach": 0,
+  "average_comments": 0,
+  "average_shares": 0,
+  "follower_growth": 0,
+  "notes": []
 }
 ```
 
-## Usage
-
-Magnus uses this tool mainly for:
-
-- Weekly reviews
-- Experiment evaluation
-- Format comparison
-- Niche performance analysis
-
 ---
 
-# 5. Cost Query Tool
+# 9. Cost Query Tool
 
 ## Tool Intent
 
@@ -163,14 +324,12 @@ cost_query
 
 ```json
 {
-  "period": "today",
+  "period": "last_7_days",
   "group_by": [
     "provider",
     "model_name",
-    "operation_type",
-    "agent_name"
-  ],
-  "include_budget_status": true
+    "operation_type"
+  ]
 }
 ```
 
@@ -178,53 +337,16 @@ cost_query
 
 ```json
 {
-  "period": "today",
-  "total_cost_usd": 1.18,
-  "budget_limit_usd": 1.50,
-  "budget_usage_percent": 78.67,
-  "by_provider": [
-    {
-      "provider": "openai",
-      "total_cost_usd": 0.76
-    },
-    {
-      "provider": "deepseek",
-      "total_cost_usd": 0.42
-    }
-  ],
-  "by_model": [
-    {
-      "model_name": "gpt-5.4-mini",
-      "total_cost_usd": 0.60
-    }
-  ],
-  "by_operation_type": [
-    {
-      "operation_type": "llm_completion",
-      "total_cost_usd": 0.94
-    },
-    {
-      "operation_type": "image_generation",
-      "total_cost_usd": 0.24
-    }
-  ],
+  "total_cost_usd": 0,
+  "by_provider": [],
+  "by_model": [],
   "warnings": []
 }
 ```
 
-## Usage
-
-Magnus uses this tool to decide whether the system should:
-
-- Continue normally
-- Switch to lower-cost models
-- Postpone non-critical tasks
-- Recommend cost-saving adjustments
-- Trigger budget protection through Javier
-
 ---
 
-# 6. Learning Query Tool
+# 10. Learning Query Tool
 
 ## Tool Intent
 
@@ -237,9 +359,7 @@ learning_query
 ```json
 {
   "niche": "viral_humor",
-  "page_id": 1,
-  "status": "ACTIVE",
-  "learning_type": "hook"
+  "status": "ACTIVE"
 }
 ```
 
@@ -249,29 +369,17 @@ learning_query
 {
   "learnings": [
     {
-      "id": 22,
-      "learning_type": "hook",
-      "title": "Office frustration hooks drive comments",
-      "description": "Short office humor posts using exaggerated workplace frustration generated more comments during weekdays.",
-      "confidence_score": 72.5,
-      "evidence": {
-        "posts_analyzed": 8,
-        "period": "last_14_days",
-        "average_comment_lift": 1.8
-      },
-      "created_at": "2026-07-08T10:00:00Z"
+      "title": "",
+      "description": "",
+      "confidence_score": 0
     }
   ]
 }
 ```
 
-## Usage
-
-Magnus uses this tool to avoid repeating known failures and to reinforce validated patterns.
-
 ---
 
-# 7. Knowledge Base Read Tools
+# 11. Knowledge Base Read Tools
 
 Magnus must be able to read:
 
@@ -293,70 +401,12 @@ Purpose:
 
 - Align recommendations with organizational strategy.
 - Avoid repeating known failures.
-- Apply validated editorial knowledge.
-- Maintain consistency across pages and niches.
-
-Magnus should always treat `CONSTITUTION.md` as the highest authority.
+- Apply validated learnings.
+- Review whether approval packages align with strategy and brand voice.
 
 ---
 
-# 8. Knowledge Update Recommendation Tool
-
-Magnus may recommend Knowledge Base updates.
-
-Magnus should not automatically rewrite core knowledge files unless explicitly authorized.
-
-## Tool Intent
-
-```text
-knowledge_update_recommendation
-```
-
-## Recommended Input
-
-```json
-{
-  "target_file": "knowledge/brand_voice.md",
-  "update_type": "add",
-  "reason": "Luis repeatedly rejected drafts for sounding robotic.",
-  "evidence": [
-    {
-      "source": "approval_requests",
-      "count": 4,
-      "feedback_pattern": "too robotic"
-    }
-  ],
-  "suggested_text": "Avoid over-polished phrasing in viral humor posts. Prefer shorter, casual, imperfect sentences that sound like a real person.",
-  "confidence": "medium"
-}
-```
-
-## Expected Output
-
-```json
-{
-  "status": "proposed",
-  "requires_approval": true,
-  "next_action_for_javier": "Review the suggested Knowledge Base update and send it to Luis for approval if it affects core voice strategy."
-}
-```
-
-## Usage
-
-Use this tool when:
-
-- A content pattern repeatedly performs well.
-- A format repeatedly fails.
-- Luis gives repeated feedback.
-- A niche develops a clearer voice.
-- A platform behavior changes.
-- A successful experiment produces a durable learning.
-
----
-
-# 9. Workflow Request Tool
-
-Magnus delegates execution to Javier.
+# 12. Workflow Request to Javier Tool
 
 ## Tool Intent
 
@@ -364,7 +414,7 @@ Magnus delegates execution to Javier.
 workflow_request_to_javier
 ```
 
-## Recommended Input
+## Example Input
 
 ```json
 {
@@ -372,51 +422,28 @@ workflow_request_to_javier
   "task": "create_content_experiment",
   "niche": "viral_humor",
   "platform": "facebook",
-  "objective": "Test whether office frustration hooks generate more comments.",
-  "context": {
-    "recent_learning": "Office humor posts generated more comments than generic meme posts.",
-    "confidence": "medium"
-  },
-  "expected_output": "A 7-day test plan with content requirements for Bruno and Elena.",
-  "priority": "medium",
-  "deadline": "next_content_cycle"
+  "experiment": {
+    "hypothesis": "Office frustration hooks generate more comments.",
+    "formats": [
+      "image_post",
+      "reel"
+    ],
+    "duration": "7 days"
+  }
 }
 ```
 
-## Expected Output
-
-```json
-{
-  "status": "accepted",
-  "assigned_by": "Javier",
-  "workflow_id": "generated-workflow-id",
-  "next_steps": [
-    "Assign Bruno to research current office humor angles.",
-    "Assign Elena to draft 4 post variants.",
-    "Send final drafts to Damian for approval packaging."
-  ]
-}
-```
-
-## Common Request Types
-
-- Create content experiment.
-- Request competitor research.
-- Request content variations.
-- Request weekly review preparation.
-- Request post-performance comparison.
-- Request Knowledge Base update proposal.
-- Request content recycling candidate analysis.
+Magnus should delegate execution instead of performing operations directly.
 
 ---
 
-# 10. Tools Magnus Should Not Use Directly
+# 13. Tools Magnus Should Not Use Directly
 
 Magnus should not directly use:
 
 ```text
 facebook_publishing
-telegram_approval_sender
+facebook_schedule
 image_generation
 file_deletion
 credential_management
@@ -426,159 +453,7 @@ raw_secret_access
 direct_media_upload
 ```
 
-These belong to Javier or Damian depending on workflow design.
-
-Magnus may recommend that a tool be used, but execution should be delegated.
-
----
-
-# 11. Tool Delegation Rules
-
-Magnus provides strategic direction.
-
-Javier handles operational execution.
-
-Examples:
-
-- If research is needed, Magnus asks Javier to assign Bruno.
-- If content needs to be created, Magnus asks Javier to assign Elena.
-- If approval packaging is needed, Magnus asks Javier to assign Damian.
-- If metrics are missing, Magnus asks Javier or Damian to retrieve them.
-- If a knowledge update is needed, Magnus proposes it and Javier coordinates implementation.
-
-Magnus should not bypass Javier unless Luis explicitly instructs it.
-
----
-
-# 12. Tool Use Safety Rules
-
-Magnus must follow these safety rules:
-
-- Do not request public actions without approval flow.
-- Do not request actions that violate `CONSTITUTION.md`.
-- Do not request unnecessary expensive model calls.
-- Do not request credential exposure.
-- Do not request direct deletion of operational data.
-- Do not request tools outside Magnus's role.
-- Do not request content publication.
-- Do not request automated comments or messages.
-
-If uncertain, Magnus should recommend a safe review step.
-
----
-
-# 13. Tool Use Examples
-
-## Example 1 — Weekly Review
-
-Situation:
-
-Luis asks what worked this week.
-
-Magnus should request:
-
-```json
-{
-  "tools": [
-    {
-      "name": "metrics_query",
-      "parameters": {
-        "period": "last_7_days",
-        "platform": "facebook"
-      }
-    },
-    {
-      "name": "learning_query",
-      "parameters": {
-        "status": "ACTIVE"
-      }
-    },
-    {
-      "name": "cost_query",
-      "parameters": {
-        "period": "last_7_days"
-      }
-    }
-  ]
-}
-```
-
-Magnus should produce:
-
-- Summary of best posts.
-- Weak posts.
-- Patterns.
-- Suggested experiments.
-- Knowledge update suggestions.
-
----
-
-## Example 2 — Budget Warning
-
-Situation:
-
-Daily cost reaches 85%.
-
-Magnus should request:
-
-```json
-{
-  "tool": "cost_query",
-  "parameters": {
-    "period": "today",
-    "group_by": [
-      "provider",
-      "operation_type"
-    ],
-    "include_budget_status": true
-  }
-}
-```
-
-Magnus should recommend:
-
-- Switching to lower-cost models.
-- Postponing non-critical media generation.
-- Prioritizing approved tasks only.
-- Asking Javier to enforce budget protection.
-
----
-
-## Example 3 — Repeated Luis Feedback
-
-Situation:
-
-Luis repeatedly says drafts sound robotic.
-
-Magnus should request:
-
-```json
-{
-  "tools": [
-    {
-      "name": "database_read",
-      "parameters": {
-        "table": "approval_requests",
-        "filter": {
-          "reviewer_feedback_contains": "robotic"
-        }
-      }
-    },
-    {
-      "name": "knowledge_read",
-      "parameters": {
-        "file": "knowledge/brand_voice.md"
-      }
-    }
-  ]
-}
-```
-
-Magnus should recommend:
-
-- Updating `brand_voice.md`.
-- Creating examples of phrases to avoid.
-- Asking Elena to adjust writing style.
+These belong to Javier, Damian, or system administration depending on workflow design.
 
 ---
 
@@ -594,8 +469,7 @@ revenue_query
 audience_segment_query
 content_recycling_recommender
 dashboard_summary_generator
-platform_health_monitor
-monetization_readiness_checker
+approval_dashboard
 ```
 
 These should be added only after the v1 workflow is stable.
@@ -604,7 +478,7 @@ These should be added only after the v1 workflow is stable.
 
 # 15. Final Tool Principle
 
-Magnus should use tools to make better strategic decisions, not to create unnecessary activity.
+Magnus uses tools to make better strategic decisions and to give Luis a clean approval experience.
 
 A tool call is useful only when it improves:
 
@@ -614,4 +488,5 @@ A tool call is useful only when it improves:
 - Learning
 - Growth
 - Cost control
+- Approval quality
 - Operational direction

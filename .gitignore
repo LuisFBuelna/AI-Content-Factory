@@ -1,3 +1,15 @@
+# AI Content Factory environment files
+.env
+.env.local
+.env.production
+.env.prod
+.env.*.local
+
+# Keep safe templates if you decide to use them
+!.env.example
+!.env.template
+
+
 # =========================
 # Java
 # =========================

@@ -1,0 +1,106 @@
+# ============================================================
+# AI Content Factory — Docker Compose
+# File: deployment/docker-compose.yml
+#
+# Run from project root:
+# docker compose --env-file .env.production -f deployment/docker-compose.yml up -d
+# ============================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-content-factory-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${APP_TIMEZONE:-America/Mexico_City}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../database/schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai_content_factory_net
+
+  adminer:
+    image: adminer:latest
+    container_name: ai-content-factory-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ai_content_factory_net
+
+  publisher-service:
+    image: ai-content-factory-publisher:latest
+    container_name: ai-content-factory-publisher
+    restart: unless-stopped
+    env_file:
+      - ../.env.production
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      APP_TIMEZONE: ${APP_TIMEZONE:-America/Mexico_City}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PUBLISHING_REQUIRE_APPROVAL: ${PUBLISHING_REQUIRE_APPROVAL:-true}
+      PUBLISHING_REQUIRE_APPROVAL_ROUTED_BY: ${PUBLISHING_REQUIRE_APPROVAL_ROUTED_BY:-Magnus}
+      PUBLISHING_REQUIRE_VALIDATED_BY: ${PUBLISHING_REQUIRE_VALIDATED_BY:-Javier}
+      PUBLISHING_REQUIRE_APPROVED_BY: ${PUBLISHING_REQUIRE_APPROVED_BY:-Luis}
+    ports:
+      - "8081:8080"
+    volumes:
+      - ../logs:/opt/ai-content-factory/logs
+      - ../storage:/opt/ai-content-factory/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ai_content_factory_net
+
+  openclaw:
+    image: ai-content-factory-openclaw:latest
+    container_name: ai-content-factory-openclaw
+    restart: unless-stopped
+    env_file:
+      - ../.env.production
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      APP_TIMEZONE: ${APP_TIMEZONE:-America/Mexico_City}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PUBLISHER_SERVICE_BASE_URL: http://publisher-service:8080
+    ports:
+      - "8082:8080"
+    volumes:
+      - ..:/opt/ai-content-factory
+      - ../logs:/opt/ai-content-factory/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      publisher-service:
+        condition: service_started
+    networks:
+      - ai_content_factory_net
+
+volumes:
+  postgres_data:
+
+networks:
+  ai_content_factory_net:
+    driver: bridge

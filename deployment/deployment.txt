@@ -1,0 +1,1 @@
+docker compose --env-file .env.production -f deployment/docker-compose.yml up -d
